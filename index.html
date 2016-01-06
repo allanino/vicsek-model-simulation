@@ -1,0 +1,163 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+  <title>Vicsek Model Simulation</title>
+  <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Source+Sans+Pro">
+    <style>
+      * { margin:0; padding:0; } /* to remove the top and left whitespace */
+      html, body { width:100%; height:100%; overflow: hidden} /* just to be sure these are full screen*/
+      canvas { display:block; }
+      body {
+          font-family: 'Source Sans Pro', 'Arial';
+          font-size: 24px;
+          background-color: #000000;
+        }
+    </style>
+  </head>
+
+  <body>
+   <div style="position: relative;">
+   <canvas id="layer1" width="100" height="100"
+     style="position: absolute; left: 0; top: 0; z-index: 0;">
+   </canvas>
+  </div>
+
+    <script>
+      // Setup canvas
+      var canvas = document.getElementById('layer1');
+      var ctx = canvas.getContext('2d');
+      ctx.canvas.width  = window.innerWidth ;
+      ctx.canvas.height = window.innerHeight;
+      ctx.fillStyle = "#EEEEEE";
+
+      function getURLParameter(name) {
+        return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search)||[,""])[1].replace(/\+/g, '%20'))||null
+      }
+
+      // Simulation configuration (spatial unit is always pixel)
+      var config = {
+        body_size: getURLParameter('bs') || 5, // Radius of the circle representing each individual
+        tail_size: getURLParameter('ts') || 20, // Size of the velocity line representing direction of movement
+        tail_width: getURLParameter('bw') || 3, // Thickness of the tail
+        N: getURLParameter('N') || 1000, // Size of population
+        velocity: getURLParameter('v') || 8, // Default velocity in pixels per update
+        deltaT: 1, // We use a fixed step
+        noise_amplitude: getURLParameter('n') || 1, // Amplitude of noise applied to theta updatea
+        neighborhood_radius: getURLParameter('r') || 50, // Radius around each individual defining it's neighborhood
+        fps: getURLParameter('fps') || 60, // Animation's Frames per second
+        blur: getURLParameter('blur') || 0.8 // Animation's Frames per second
+      }
+
+      // Uniform noise from -eta/2 to eta/2
+      function noise(eta){
+        return (2*Math.random() - 1)*eta/2;
+      }
+
+      // A class to keep track of each individual state. As the speed is
+      // constant, we need only the velocity angle to full specify the velocity
+      // vector and we call it theta
+      function Individual(x, y, theta) {
+        this.x = x;
+        this.y = y;
+        this.theta = theta;
+
+        // Compute the Euclidean distance from this individual to another
+        this.distance = function(individual) {
+          return Math.sqrt((this.x-individual.x)*(this.x-individual.x) + (this.y-individual.y)*(this.y-individual.y));
+        };
+
+        //Draw this individual
+        this.draw = function() {
+          // Draw circle
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, config.body_size, 0, 2 * Math.PI, false);
+          ctx.fillStyle = 'green';
+          ctx .fill();
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(this.x - config.body_size*Math.cos(this.theta), this.y - config.body_size*Math.sin(this.theta));
+          ctx.lineTo(this.x - config.tail_size*Math.cos(this.theta),this.y - config.tail_size*Math.sin(this.theta));
+          ctx.lineWidth = config.tail_width;
+          ctx.strokeStyle="DarkGreen";
+          ctx.stroke();
+        },
+
+        // Update this individual according to Vicsek rules. We need to pass an
+        // array of individuals, as we use neighbors information to compute the
+        // average direction in the individual neighborhood
+        this.update = function(population) {
+          // Compute average theta in the neighborhood
+          var neighbors_theta = 0.0;
+          var count_neighbors = 0;
+          var this_individual = this;
+          population.forEach(function(individual) {
+            if(this_individual.distance(individual) < config.neighborhood_radius){
+              neighbors_theta += individual.theta;
+              count_neighbors += 1;
+            };
+          });
+          neighbors_theta = neighbors_theta/count_neighbors;
+
+          // Vicsek equations
+          this.theta = neighbors_theta +  noise(config.noise_amplitude);
+          this.x = this.x + config.velocity*config.deltaT*Math.cos(this.theta);
+          this.y = this.y + config.velocity*config.deltaT*Math.sin(this.theta);
+
+          // Apply periodic boundary condition (torus)
+          if(this.x < 0){
+            this.x += ctx.canvas.width
+          }
+          if(this.x > ctx.canvas.width){
+            this.x -= ctx.canvas.width
+          }
+          if(this.y < 0){
+            this.y += ctx.canvas.height
+          }
+          if(this.y > ctx.canvas.height){
+            this.y -= ctx.canvas.height
+          }
+        };
+      }
+
+      // Randomly create a population of N individuals
+      function create(N) {
+        var population = [];
+        for(var i = 0; i < N; i++){
+          population.push(new Individual(Math.random()*ctx.canvas.width, Math.random()*ctx.canvas.height, Math.random()*3*Math.PI));
+        };
+        return population;
+      }
+
+      // Generate population
+      var population = create(config.N);
+
+      // Update all individuals
+      function update() {
+        population.forEach(function(individual) {
+          individual.update(population);
+        });
+      };
+
+      // Draw moving individuals
+      function draw() {
+        ctx.globalAlpha = 1 - config.blur;
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.globalAlpha = 1.0;
+
+        //ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        population.forEach(function(individual) {
+          individual.draw();
+        });
+      }
+
+      // Main loop
+      window.onload = function(){
+        setInterval(function() {
+            update();
+            draw();
+        }, 1000/config.fps);
+      }
+    </script>
+  </body>
+</html>
