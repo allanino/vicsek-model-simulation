@@ -21,5 +21,5 @@ parameters are available:
 - `ts`: tail size of particles in pixels
 - `tw`: tail width of particles in pixels
 
-For instance, o create a simulation with 500 individuals, noise amplitude of 2
-radians and velocity of 10 pixels you can access [http://allanino.me/vicsek_model_simulation?N=500&n=2.0&v=10](http://allanino.me/vicsek_model_simulation?N=500&n=2.0&v=10).
+For instance, to create a simulation with 500 individuals, noise amplitude of 2
+radians and velocity of 10 pixels you can access [http://allanino.me/vicsek-model-simulation/?N=500&n=2.0&v=10](http://allanino.me/vicsek-model-simulation/?N=500&n=2.0&v=10).
