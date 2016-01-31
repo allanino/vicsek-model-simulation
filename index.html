@@ -39,7 +39,7 @@
         body_size: getURLParameter('bs') || 5, // Radius of the circle representing each individual
         tail_size: getURLParameter('ts') || 20, // Size of the velocity line representing direction of movement
         tail_width: getURLParameter('bw') || 3, // Thickness of the tail
-        N: getURLParameter('N') || 1000, // Size of population
+        N: getURLParameter('N') || 2000, // Size of population
         velocity: getURLParameter('v') || 8, // Default velocity in pixels per update
         deltaT: 1, // We use a fixed step
         noise_amplitude: getURLParameter('n') || 1, // Amplitude of noise applied to theta updatea
@@ -47,6 +47,7 @@
         fps: getURLParameter('fps') || 60, // Animation's Frames per second
         blur: getURLParameter('blur') || 0.6 // Amount of blur from 0.0 to 1.0
       }
+      config.r_squared = Math.pow(config.neighborhood_radius, 2)
 
       // Uniform noise from -eta/2 to eta/2
       function noise(eta){
@@ -60,10 +61,11 @@
         this.x = x;
         this.y = y;
         this.theta = theta;
+        this.box = [Math.floor(this.x/config.neighborhood_radius), Math.floor(this.y/config.neighborhood_radius)];
 
         // Compute the Euclidean distance from this individual to another
-        this.distance = function(individual) {
-          return Math.sqrt((this.x-individual.x)*(this.x-individual.x) + (this.y-individual.y)*(this.y-individual.y));
+        this.distance_squared = function(individual) {
+          return Math.pow(this.x-individual.x, 2) + Math.pow(this.y-individual.y, 2);
         };
 
         //Draw this individual
@@ -82,21 +84,38 @@
           ctx.stroke();
         },
 
-        // Update this individual according to Vicsek rules. We need to pass an
-        // array of individuals, as we use neighbors information to compute the
-        // average direction in the individual neighborhood
-        this.update = function(population) {
+        this.neighbors_theta = function(boxes){
           // Compute average theta in the neighborhood
           var neighbors_theta = 0.0;
           var count_neighbors = 0;
           var this_individual = this;
-          population.forEach(function(individual) {
-            if(this_individual.distance(individual) < config.neighborhood_radius){
-              neighbors_theta += individual.theta;
-              count_neighbors += 1;
-            };
-          });
-          neighbors_theta = neighbors_theta/count_neighbors;
+
+          // Get this individual's box
+          box_i = this.box[0]
+          box_j = this.box[1]
+
+          // Compute neighbors distances in a neighborhood of 3x3 boxes
+          // Warning: we are ignoring boundary topology for neighbors theta
+          for(var i = box_i - 1; i <= box_i + 1; i++){
+            if(i < 0 || i > ctx.canvas.width/config.neighborhood_radius){ continue; }
+            for(var j = box_j - 1; j <= box_j + 1; j++){
+              if(j < 0 || j > ctx.canvas.height/config.neighborhood_radius){ continue; }
+              boxes[i][j].forEach(function(individual) {
+                if(this_individual.distance_squared(individual) < config.r_squared){
+                  neighbors_theta += individual.theta;
+                  count_neighbors += 1;
+                };
+              });
+            }
+          }
+          return neighbors_theta/count_neighbors;
+        }
+
+        // Update this individual according to Vicsek rules. We need to pass an
+        // array of individuals, as we use neighbors information to compute the
+        // average direction in the individual neighborhood
+        this.update = function(boxes) {
+          neighbors_theta = this.neighbors_theta(boxes);
 
           // Vicsek equations
           this.theta = neighbors_theta +  noise(config.noise_amplitude);
@@ -116,6 +135,10 @@
           if(this.y > ctx.canvas.height){
             this.y -= ctx.canvas.height
           }
+
+          // Update box
+          this.box[0] = Math.floor(this.x/config.neighborhood_radius);
+          this.box[1] = Math.floor(this.y/config.neighborhood_radius);
         };
       }
 
@@ -128,14 +151,40 @@
         return population;
       }
 
+      function update_boxes(population) {
+        var max_i = Math.floor(ctx.canvas.width/config.neighborhood_radius);
+        var max_j = Math.floor(ctx.canvas.height/config.neighborhood_radius);
+
+        // Initialize boxes lists (boxes[i][j] = []) to get indices later
+        var boxes = [];
+        for(var i=0; i <= max_i; i++){
+          boxes.push([]);
+          for(var j=0; j<=max_j; j++){
+            boxes[i].push([]);
+          }
+        }
+
+        // Push each individual in population to it's proper box
+        population.forEach(function(individual) {
+          boxes[individual.box[0]][individual.box[1]].push(individual);
+        });
+
+        return boxes;
+      }
+
       // Generate population
       var population = create(config.N);
+
+      // Put initial individuals is their boxes
+      var boxes = update_boxes(population);
 
       // Update all individuals
       function update() {
         population.forEach(function(individual) {
-          individual.update(population);
+          individual.update(boxes);
         });
+        // Update boxes lists
+        boxes = update_boxes(population);
       };
 
       // Draw moving individuals
