@@ -45,7 +45,7 @@
         neighborhood_radius: getURLParameter('r') || 32, // Radius around each individual defining it's neighborhood
         fps: getURLParameter('fps') || 30, // Animation's Frames per second
         blur: getURLParameter('blur') || 0.92, // Amount of blur from 0.0 to 1.0
-        color_memory: getURLParameter('cm') || 16 // Direction memory to compute colors 
+        color_memory: getURLParameter('cm') || 16 // Direction memory to compute colors
       }
       config.r_squared = Math.pow(config.neighborhood_radius, 2)
 
@@ -74,7 +74,7 @@
 
         //Draw this individual
         this.draw = function() {
-          let color = Math.floor(200 + Math.sin(4*this.mean_theta)*55);
+          let color = Math.floor(200 + Math.sin(5*this.mean_theta)*55);
           let color2 = Math.floor(180 + Math.cos(this.mean_theta)*75);
           // console.log(color);
 
