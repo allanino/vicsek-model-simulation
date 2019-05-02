@@ -20,6 +20,7 @@ parameters are available:
 - `bs`: body size of particles in pixels
 - `ts`: tail size of particles in pixels
 - `tw`: tail width of particles in pixels
+- `cm`: number of individual directions to consider on color computation
 
 For instance, to create a simulation with 500 individuals, noise amplitude of 2
 radians and velocity of 10 pixels you can access [http://allanino.me/vicsek-model-simulation/?N=500&n=2.0&v=10](http://allanino.me/vicsek-model-simulation/?N=500&n=2.0&v=10).

@@ -36,21 +36,22 @@
 
       // Simulation configuration (spatial unit is always pixel)
       var config = {
-        body_size: getURLParameter('bs') || 4, // Secondary axis
-        tail_size: getURLParameter('ts') || 8, // Major axis
-        N: getURLParameter('N') || 2500  , // Size of population
+        body_size: getURLParameter('bs') || 5, // Radius of the circle representing each individual
+        tail_size: getURLParameter('ts') || 20, // Size of the velocity line representing direction of movement
+        tail_width: getURLParameter('bw') || 3, // Thickness of the tail
+        N: getURLParameter('N') || 2000, // Size of population
         velocity: getURLParameter('v') || 8, // Default velocity in pixels per update
         deltaT: 1, // We use a fixed step
         noise_amplitude: getURLParameter('n') || 1, // Amplitude of noise applied to theta updatea
-        neighborhood_radius: getURLParameter('r') || 32, // Radius around each individual defining it's neighborhood
-        fps: getURLParameter('fps') || 30, // Animation's Frames per second
-        blur: getURLParameter('blur') || 0.92, // Amount of blur from 0.0 to 1.0
-        color_memory: getURLParameter('cm') || 16 // Direction memory to compute colors 
+        neighborhood_radius: getURLParameter('r') || 50, // Radius around each individual defining it's neighborhood
+        fps: getURLParameter('fps') || 60, // Animation's Frames per second
+        blur: getURLParameter('blur') || 0.6 // Amount of blur from 0.0 to 1.0
       }
       config.r_squared = Math.pow(config.neighborhood_radius, 2)
 
-      function uniform_noise(eta){
-        return (2*Math.random() - 1.0)*eta/2;
+      // Uniform noise from -eta/2 to eta/2
+      function noise(eta){
+        return (2*Math.random() - 1)*eta/2;
       }
 
       // A class to keep track of each individual state. As the speed is
@@ -60,13 +61,8 @@
         this.x = x;
         this.y = y;
         this.theta = theta;
-        this.mean_theta = theta;
-        this.last_thetas = [];
-        for(var i = 0; i < config.color_memory; i++) {
-          this.last_thetas.push(theta);
-        }
         this.box = [Math.floor(this.x/config.neighborhood_radius), Math.floor(this.y/config.neighborhood_radius)];
-        this.color = 100;
+
         // Compute the Euclidean distance from this individual to another
         this.distance_squared = function(individual) {
           return Math.pow(this.x-individual.x, 2) + Math.pow(this.y-individual.y, 2);
@@ -74,15 +70,18 @@
 
         //Draw this individual
         this.draw = function() {
-          let color = Math.floor(200 + Math.sin(4*this.mean_theta)*55);
-          let color2 = Math.floor(180 + Math.cos(this.mean_theta)*75);
-          // console.log(color);
-
-          // console.log(this.theta)
+          // Draw circle
           ctx.beginPath();
-          ctx.ellipse(Math.floor(this.x), Math.floor(this.y), config.tail_size, config.body_size, this.theta, 0, 2 * Math.PI);
-          ctx.fillStyle = `rgb(0, ${color}, ${color2})`;
+          ctx.arc(this.x, this.y, config.body_size, 0, 2 * Math.PI, false);
+          ctx.fillStyle = 'green';
           ctx .fill();
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(this.x - config.body_size*Math.cos(this.theta), this.y - config.body_size*Math.sin(this.theta));
+          ctx.lineTo(this.x - config.tail_size*Math.cos(this.theta),this.y - config.tail_size*Math.sin(this.theta));
+          ctx.lineWidth = config.tail_width;
+          ctx.strokeStyle="DarkGreen";
+          ctx.stroke();
         },
 
         this.neighbors_theta = function(boxes){
@@ -119,17 +118,7 @@
           neighbors_theta = this.neighbors_theta(boxes);
 
           // Vicsek equations
-          this.theta = neighbors_theta + uniform_noise(config.noise_amplitude);
-          if(this.theta < 0) this.theta += 2*Math.PI;
-          if(this.theta > 2*Math.PI) this.theta -= 2*Math.PI;
-
-          this.last_thetas.push(this.theta);
-          this.last_thetas.shift();
-          let sum = 0;
-          this.last_thetas.forEach(t => sum += t);
-          this.mean_theta = sum/this.last_thetas.length;
-
-
+          this.theta = neighbors_theta +  noise(config.noise_amplitude);
           this.x = this.x + config.velocity*config.deltaT*Math.cos(this.theta);
           this.y = this.y + config.velocity*config.deltaT*Math.sin(this.theta);
 
@@ -212,29 +201,12 @@
       }
 
       // Main loop
-      var interval = 1000/config.fps;
-      var start;
-      function step(timestamp) {
-        window.requestAnimationFrame(step);
-
-        if (!start) start = timestamp;
-        var progress = timestamp - start;
-
-        if (progress > interval) {
-          start = timestamp;
-
-          var t1 = Date.now();
-          update();
-          var t2 = Date.now();
-          // console.log(`Update: ${t2 - t1}`);
-          t1 = Date.now();
-          draw();
-          t2 = Date.now();
-          // console.log(`Draw: ${t2 - t1}`);
-        }
-      };
-
-      window.requestAnimationFrame(step)
+      window.onload = function(){
+        setInterval(function() {
+            update();
+            draw();
+        }, 1000/config.fps);
+      }
     </script>
   </body>
 </html>
